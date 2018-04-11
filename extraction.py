@@ -53,14 +53,12 @@ def main(
                                           pixel_id=pixel_id)
         events = subtract_digicam_baseline(events)
 
-    events = find_pulse_3(events, threshold=pulse_finder_threshold)
-    events = compute_charge(events, integral_width, shift)
     events = fill_baseline_span_ala_andrii(events, baseline_span_ala_andrii)
     events = fill_random_charge(events, random_charge, 5)
 
-    spe_charge = build_spe(events, bin_edges=np.arange(-20, 500, 1))
+    for _ in events:
+        pass
 
-    save_container(spe_charge, output_file, 'histo', 'spe_charge')
     save_container(
         CalibrationHistogramContainer().from_histogram(baseline_span_ala_andrii),
         output_file,
@@ -130,31 +128,6 @@ def subtract_digicam_baseline(events):
         yield event
 
 
-def find_pulse_3(events, threshold):
-    w = np.array([1, 2, 3, 4, 5, 4, 3, 2, 1], dtype=np.float32)
-    w /= w.sum()
-
-    for count, event in enumerate(events):
-        adc_samples = event.data.adc_samples
-        pulse_mask = np.zeros(adc_samples.shape, dtype=np.bool)
-
-        c = convolve1d(
-            input=adc_samples,
-            weights=w,
-            axis=1,
-            mode='constant',
-        )
-        pulse_mask[:, 6:-6] = (
-            (c[:, :-2] <= c[:, 1:-1]) &
-            (c[:, 1:-1] >= c[:, 2:]) &
-            (c[:, 1:-1] > threshold)
-        )[:, 5:-5]
-
-        event.data.pulse_mask = pulse_mask
-
-        yield event
-
-
 def fill_baseline_span_ala_andrii(events, histo):
 
     for count, event in enumerate(events):
@@ -188,47 +161,6 @@ def fill_random_charge(events, histo, integral_width):
         histo.fill(charges)
 
         yield event
-
-
-def compute_charge(events, integral_width, shift):
-    for count, event in enumerate(events):
-
-        adc_samples = event.data.adc_samples
-        pulse_mask = event.data.pulse_mask
-
-        convolved_signal = convolve1d(
-            adc_samples,
-            np.ones(integral_width),
-            axis=-1
-        )
-
-        charges = np.zeros(convolved_signal.shape) * np.nan
-        charges[pulse_mask] = convolved_signal[
-            np.roll(pulse_mask, shift, axis=1)
-        ]
-        event.data.reconstructed_charge = charges
-
-        yield event
-
-
-def build_spe(events, bin_edges=np.arange(-20, 500, 1)):
-
-    for i, event in tqdm(enumerate(events)):
-
-        if i == 0:
-
-            n_pixels = len(event.pixel_id)
-
-            spe_charge = Histogram1D(
-                data_shape=(n_pixels,),
-                bin_edges=bin_edges
-            )
-
-        spe_charge.fill(event.data.reconstructed_charge)
-
-    spe_charge = CalibrationHistogramContainer().from_histogram(spe_charge)
-
-    return spe_charge
 
 
 def save_container(container, filename, group_name, table_name):
