@@ -46,12 +46,7 @@ def estimate_darkcount_rate_poisson(
     return -np.log(N_0 / N_total) / time_window
 
 
-def estimate_darkcount_rate_max_min(path):
-
-    n_bins = next(
-        calibration_event_stream(path)
-    ).data.adc_samples.shape[1]
-
+def estimate_darkcount_rate_max_min(path, n_bins=50):
     f = h5py.File(path, 'r')
     bs = f['histo/baseline_span_ala_andrii'].value[0]
     x = (bs['bins'][1:] + bs['bins'][:-1]) / 2
@@ -74,9 +69,10 @@ def estimate_darkcount_rate_max_min(path):
     return pd.DataFrame(R)
 
 
-def estimate_darkcount_rate_random_charge(path):
-
-    n_bins = 5   # Horrible: magic number, comes from extract.py line: 59.
+def estimate_darkcount_rate_random_charge(
+    path,
+    n_bins=5   # Horrible: magic number, comes from extract.py line: 59.
+):
 
     f = h5py.File(path, 'r')
     bs = f['histo/random_charge'].value[0]
@@ -90,8 +86,8 @@ def estimate_darkcount_rate_random_charge(path):
             results['pixel_id'] = pixel_id
             results['dark_count_rate_MHz'] = estimate_darkcount_rate_poisson(
                 N_total=Y[pixel_id].sum(),
-                N_0 = results['A'],
-                time_window = (n_bins * 4e-9) * 1e6  # 1e6 to convert in MHz
+                N_0=results['A'],
+                time_window=(n_bins * 4e-9) * 1e6  # 1e6 to convert in MHz
                 )
             R.append(results)
         except (RuntimeError, ZeroDivisionError):

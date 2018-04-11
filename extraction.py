@@ -9,7 +9,7 @@ from ctapipe.io import HDF5TableWriter
 from digicampipe.io.event_stream import calibration_event_stream
 from digicampipe.io.containers_calib import CalibrationHistogramContainer
 from histogram.histogram import Histogram1D
-
+import h5py
 
 @command('main')
 def main(
